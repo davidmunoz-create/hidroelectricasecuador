@@ -135,16 +135,16 @@
       hidro: { caudal: "CaudalCuencaPaute", desc: "Caudal de la cuenca del río Paute" } },
     { id: "total", nombre: "Todas las centrales", total: true },
     { id: "maz", nombre: "Mazar",
-      hidro: { caudal: "CaudalMaz", cota: "CotaMaz", min: 2098, max: 2153, critica: 2115, desc: "Caudal registrado en Mazar" },
+      hidro: { caudal: "CaudalMaz", cota: "CotaMaz", critica: 2115, refNombre: "cota crítica", refNota: "nivel en el que la central deja de generar", desc: "Caudal registrado en Mazar" },
       prod: { energia: "EnergiaMaz", unidades: "UnidadesMaz" } },
     { id: "mol", nombre: "Molino", nombreHidro: "Amaluza (Molino)",
-      hidro: { caudal: "CaudalMol", cota: "CotaMol", min: 1975, max: 1991, desc: "Caudal registrado en el embalse de Amaluza, que abastece a la central Molino" },
+      hidro: { caudal: "CaudalMol", cota: "CotaMol", critica: 1975, refNombre: "nivel mínimo", refNota: "según CELEC", desc: "Caudal registrado en el embalse de Amaluza, que abastece a la central Molino" },
       prod: { energia: "EnergiaMol", unidades: "UnidadesMol" } },
     { id: "sop", nombre: "Sopladora",
-      hidro: { caudal: "CaudalSop", cota: "CotaSop", min: 1312, max: 1318, desc: "Caudal registrado en la central Sopladora" },
+      hidro: { caudal: "CaudalSop", cota: "CotaSop", critica: 1312, refNombre: "nivel mínimo", refNota: "según CELEC", desc: "Caudal registrado en la central Sopladora" },
       prod: { energia: "EnergiaSop", unidades: "UnidadesSop" } },
-    { id: "msf", nombre: "Minas San Francisco",
-      hidro: { caudal: "CaudalMsf", cota: "CotaMsf", min: 783.33, max: 792.86, desc: "Caudal registrado en Minas San Francisco" },
+    { id: "msf", nombre: "Minas San Francisco", corto: "M. San Francisco",
+      hidro: { caudal: "CaudalMsf", cota: "CotaMsf", critica: 783.33, refNombre: "nivel mínimo", refNota: "según CELEC", desc: "Caudal registrado en Minas San Francisco" },
       prod: { energia: "EnergiaMsf", unidades: "UnidadesMsf" } },
     { id: "ago", nombre: "Agoyán",
       hidro: { caudal: "CaudalAgo", cota: "CotaAgo", desc: "Caudal registrado en Agoyán" },
@@ -366,9 +366,11 @@
       k.push(kpi("Cota, último registro", cv == null ? "s/d" : num(cv, 2), "m s. n. m.", uCota ? cuando(uCota) : ""));
       if (h.critica) {
         var dif = cv == null ? null : cv - h.critica;
-        k.push(kpi(dif != null && dif < 0 ? "Metros bajo la cota crítica" : "Metros sobre la cota crítica",
-                   dif == null ? "s/d" : num(Math.abs(dif), 1), "m",
-                   "Cota crítica: " + num(h.critica, 0) + " m s. n. m., nivel en el que la central deja de generar"));
+        var ad = dif == null ? null : Math.abs(dif);
+        k.push(kpi((dif != null && dif < 0 ? "Metros bajo " : "Metros sobre ") + (h.refNombre === "cota crítica" ? "la " : "el ") + h.refNombre,
+                   ad == null ? "s/d" : num(ad, ad < 10 ? 2 : 1), "m",
+                   h.refNombre.charAt(0).toUpperCase() + h.refNombre.slice(1) + ": " + num(h.critica, h.critica % 1 ? 2 : 0) +
+                   " m s. n. m., " + h.refNota));
       } else if (h.min != null) {
         var pct = cv == null ? null : Math.max(0, Math.min(100, (cv - h.min) / (h.max - h.min) * 100));
         k.push(kpi("Posición en el rango de operación", pct == null ? "s/d" : num(pct, 0) + "%", "",
@@ -398,10 +400,12 @@
       card2.hidden = false;
       var ver = !!h.critica && estado.verCritica[estado.periodo];
       btn.hidden = !h.critica;
+      if (h.critica) btn.lastChild.textContent = h.refNombre.charAt(0).toUpperCase() + h.refNombre.slice(1);
       btn.setAttribute("aria-pressed", String(ver));
       document.getElementById("t-2").textContent = (mensual ? "Cota al cierre de cada día, " : "Cota por hora, ") + nombre(c);
       document.getElementById("h-2").textContent = "Nivel del agua, en metros sobre el nivel del mar." +
-        (ver ? " La línea roja marca la cota crítica (" + num(h.critica, 0) + " m s. n. m.)." : "");
+        (ver ? " La línea roja marca " + (h.refNombre === "cota crítica" ? "la " : "el ") + h.refNombre +
+               " (" + num(h.critica, h.critica % 1 ? 2 : 0) + " m s. n. m.)." : "");
       var extra = ver ? [{ referencia: true, data: labels.map(function () { return h.critica; }), borderColor: COLOR.critica,
                            borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, pointHoverRadius: 0, pointHitRadius: 0, fill: false }] : [];
       dibujar("c-2", { tipo: "line", labels: labels, valores: filas.map(function (f) { return f[h.cota]; }),
@@ -486,7 +490,8 @@
     document.getElementById("btn-critica").hidden = true;
     if (c.total) {
       card2.hidden = false;
-      var porPlanta = PLANTAS.map(function (p) { return { n: p.nombre, v: suma(util, p.prod.energia) }; })
+      var angosto = window.innerWidth < 560;
+      var porPlanta = PLANTAS.map(function (p) { return { n: angosto && p.corto ? p.corto : p.nombre, v: suma(util, p.prod.energia) }; })
                              .sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
       document.getElementById("t-2").textContent = mensual ? "Energía acumulada del mes por central" : "Energía acumulada del día por central";
       document.getElementById("h-2").textContent = "En megavatios hora (MWh).";
