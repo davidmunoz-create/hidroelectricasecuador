@@ -143,7 +143,7 @@
     { id: "sop", nombre: "Sopladora",
       hidro: { caudal: "CaudalSop", cota: "CotaSop", min: 1312, max: 1318, desc: "Caudal registrado en la central Sopladora" },
       prod: { energia: "EnergiaSop", unidades: "UnidadesSop" } },
-    { id: "msf", nombre: "Minas San Francisco", corto: "M. San Francisco",
+    { id: "msf", nombre: "Minas San Francisco",
       hidro: { caudal: "CaudalMsf", cota: "CotaMsf", min: 783.33, max: 792.86, desc: "Caudal registrado en Minas San Francisco" },
       prod: { energia: "EnergiaMsf", unidades: "UnidadesMsf" } },
     { id: "ago", nombre: "Agoyán",
@@ -486,8 +486,7 @@
     document.getElementById("btn-critica").hidden = true;
     if (c.total) {
       card2.hidden = false;
-      var angosto = window.innerWidth < 560;
-      var porPlanta = PLANTAS.map(function (p) { return { n: angosto && p.corto ? p.corto : p.nombre, v: suma(util, p.prod.energia) }; })
+      var porPlanta = PLANTAS.map(function (p) { return { n: p.nombre, v: suma(util, p.prod.energia) }; })
                              .sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
       document.getElementById("t-2").textContent = mensual ? "Energía acumulada del mes por central" : "Energía acumulada del día por central";
       document.getElementById("h-2").textContent = "En megavatios hora (MWh).";
