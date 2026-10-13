@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidroeléctricas de CELEC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #f6f7fb;
+    --ink: #14152b;
+    --ink-2: #4a4c66;
+    --muted: #7b7d95;
+    --line: #e3e5ee;
+    --brand: #2a27b8;
+    --brand-soft: #e9e8fb;
+    --caudal: #2a27b8;
+    --cota: #0f7a6e;
+    --energia: #b45309;
+    --unidades: #475569;
+    --critica: #d0312d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 15px; line-height: 1.4; padding: 16px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 20px; line-height: 1.25; margin: 0 0 4px; font-weight: 700; }
+  .sub { color: var(--ink-2); font-size: 13.5px; margin: 0 0 14px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; margin-bottom: 10px; }
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+  .seg button { border: 0; background: transparent; color: var(--ink-2); font: inherit; font-weight: 600; font-size: 14px; padding: 6px 16px; border-radius: 999px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+  .seg.sec button[aria-pressed="true"] { background: #fff; color: var(--brand); box-shadow: 0 0 0 1px var(--brand) inset; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .chips button { border: 1px solid var(--line); background: #fff; color: var(--ink-2); font: inherit; font-size: 13.5px; font-weight: 500; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+  .chips button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+  button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .kpi { background: var(--panel); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  .kpi .lbl { font-size: 12.5px; color: var(--ink-2); }
+  .kpi .val { font-size: 22px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .kpi .val small { font-size: 13px; font-weight: 500; color: var(--ink-2); margin-left: 3px; }
+  .kpi .note { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .meter { height: 8px; background: var(--line); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--cota); border-radius: 4px; }
+
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px 6px; margin-bottom: 12px; }
+  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .card h2 { font-size: 15px; margin: 0; font-weight: 600; }
+  .card .hint { font-size: 12.5px; color: var(--muted); margin: 2px 0 6px; }
+  .chart-box { position: relative; height: 230px; }
+  .toggle { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff;
+            color: var(--ink-2); font: inherit; font-size: 12.5px; font-weight: 500; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+  .toggle[hidden] { display: none; }
+  .toggle i { width: 14px; height: 0; border-top: 2px dashed var(--critica); }
+  .toggle[aria-pressed="true"] { border-color: var(--critica); color: #a82420; background: #fdf0ef; }
+
+  .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .foot a { color: var(--brand); }
+  details { margin-top: 10px; font-size: 13px; }
+  summary { cursor: pointer; color: var(--brand); font-weight: 500; }
+  .tbl-wrap { overflow-x: auto; max-height: 280px; overflow-y: auto; margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { position: sticky; top: 0; background: var(--panel); font-weight: 600; }
+  .msg { padding: 40px 10px; text-align: center; color: var(--ink-2); }
+
+  @media (max-width: 560px) {
+    body { padding: 12px; }
+    h1 { font-size: 18px; }
+    .seg button { padding: 6px 12px; font-size: 13.5px; }
+    .kpis { grid-template-columns: 1fr 1fr; }
+    .kpi:last-child { grid-column: 1 / -1; }
+    .kpi .val { font-size: 19px; }
+    .chart-box { height: 210px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="titulo">Caudales y niveles de las hidroeléctricas de CELEC</h1>
+  <p class="sub" id="sub">Cargando datos…</p>
+
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Periodo">
+      <button type="button" data-periodo="diario" aria-pressed="true">Diario</button>
+      <button type="button" data-periodo="mensual" aria-pressed="false">Mensual</button>
+    </div>
+    <div class="seg sec" role="group" aria-label="Información">
+      <button type="button" data-vista="hidrologia" aria-pressed="true">Hidrología</button>
+      <button type="button" data-vista="produccion" aria-pressed="false">Producción</button>
+    </div>
+  </div>
+  <div class="chips" role="group" aria-label="Central" id="chips"></div>
+
+  <p class="msg" id="vacio" hidden>No hay datos disponibles para este periodo.</p>
+  <div id="app">
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <h2 id="t-1"></h2>
+      <p class="hint" id="h-1"></p>
+      <div class="chart-box"><canvas id="c-1" role="img" aria-label="Gráfico principal"></canvas></div>
+    </div>
+    <div class="card" id="card-2">
+      <div class="card-head">
+        <h2 id="t-2"></h2>
+        <button type="button" class="toggle" id="btn-critica" aria-pressed="false" hidden><i aria-hidden="true"></i>Cota crítica</button>
+      </div>
+      <p class="hint" id="h-2"></p>
+      <div class="chart-box"><canvas id="c-2" role="img" aria-label="Gráfico secundario"></canvas></div>
+    </div>
+    <details>
+      <summary>Ver los datos en una tabla</summary>
+      <div class="tbl-wrap"><table id="tabla"></table></div>
+    </details>
+  </div>
+
+  <div class="foot">
+    <span>Fuente: CELEC EP. Elaboración: Ecuavisa.</span>
+    <a id="descarga" href="data/hidrologia-diario.csv" download>Descargar datos (CSV)</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Columnas de los CSV de CELEC. Rangos de cota según la propia página de CELEC.
+  var CENTRALES = [
+    { id: "paute", nombre: "Cuenca del Paute",
+      hidro: { caudal: "CaudalCuencaPaute", desc: "Caudal de la cuenca del río Paute" } },
+    { id: "total", nombre: "Todas las centrales", total: true },
+    { id: "maz", nombre: "Mazar",
+      hidro: { caudal: "CaudalMaz", cota: "CotaMaz", min: 2098, max: 2153, critica: 2115, desc: "Caudal registrado en Mazar" },
+      prod: { energia: "EnergiaMaz", unidades: "UnidadesMaz" } },
+    { id: "mol", nombre: "Molino", nombreHidro: "Amaluza (Molino)",
+      hidro: { caudal: "CaudalMol", cota: "CotaMol", min: 1975, max: 1991, desc: "Caudal registrado en el embalse de Amaluza, que abastece a la central Molino" },
+      prod: { energia: "EnergiaMol", unidades: "UnidadesMol" } },
+    { id: "sop", nombre: "Sopladora",
+      hidro: { caudal: "CaudalSop", cota: "CotaSop", min: 1312, max: 1318, desc: "Caudal registrado en la central Sopladora" },
+      prod: { energia: "EnergiaSop", unidades: "UnidadesSop" } },
+    { id: "msf", nombre: "Minas San Francisco", corto: "M. San Francisco",
+      hidro: { caudal: "CaudalMsf", cota: "CotaMsf", min: 783.33, max: 792.86, desc: "Caudal registrado en Minas San Francisco" },
+      prod: { energia: "EnergiaMsf", unidades: "UnidadesMsf" } },
+    { id: "ago", nombre: "Agoyán",
+      hidro: { caudal: "CaudalAgo", cota: "CotaAgo", desc: "Caudal registrado en Agoyán" },
+      prod: { energia: "EnergiaAgo", unidades: "UnidadesAgo" } },
+    { id: "man", nombre: "Manduriacu",
+      hidro: { caudal: "CaudalMan", cota: "CotaMan", desc: "Caudal registrado en Manduriacu" },
+      prod: { energia: "EnergiaMan", unidades: "UnidadesMan" } },
+    { id: "ccs", nombre: "Coca Codo Sinclair",
+      hidro: { caudal: "CaudalCCS", cota: "CotaCCS", desc: "Caudal registrado en Coca Codo Sinclair" },
+      prod: { energia: "EnergiaCCS", unidades: "UnidadesCCS" } }
+  ];
+  var PLANTAS = CENTRALES.filter(function (c) { return c.prod; });
+  var MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  var DIAS = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  var COLOR = {};
+  ["caudal","cota","energia","unidades","critica"].forEach(function (k) {
+    COLOR[k] = getComputedStyle(document.documentElement).getPropertyValue("--" + k).trim();
+  });
+
+  var params = new URLSearchParams(location.search);
+  var estado = {
+    periodo: params.get("periodo") === "mensual" ? "mensual" : "diario",
+    vista: params.get("vista") === "produccion" ? "produccion" : "hidrologia",
+    central: params.get("central") || params.get("embalse") || "maz",
+    verCritica: { diario: false, mensual: true }
+  };
+  if (estado.central === "mazar") estado.central = "maz";
+  var datos = {};
+  var charts = {};
+
+  function disponibles() {
+    return CENTRALES.filter(function (c) { return estado.vista === "hidrologia" ? c.hidro : (c.prod || c.total); });
+  }
+  function central() {
+    var lista = disponibles();
+    var c = lista.filter(function (x) { return x.id === estado.central; })[0];
+    if (!c) {
+      estado.central = estado.central === "paute" ? "total" : estado.central === "total" ? "paute" : "maz";
+      c = lista.filter(function (x) { return x.id === estado.central; })[0] || lista[0];
+    }
+    return c;
+  }
+  function nombre(c) { return estado.vista === "hidrologia" && c.nombreHidro ? c.nombreHidro : c.nombre; }
+
+  function num(v, dec) {
+    return v.toLocaleString("es-EC", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+  function mwh(v) { return v === 0 ? "0" : num(v, Math.abs(v) >= 100 ? 0 : 1); }
+
+  function parseFecha(s) {
+    var m = s.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+    return m ? new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]) : null;
+  }
+
+  // CELEC escribe 0 o deja vacío cuando no hay dato. Una fila sin ningún valor distinto de cero
+  // es una hora o día sin información, y una cota en 0 nunca es real.
+  function parseCSV(txt) {
+    var lineas = txt.replace(/\r/g, "").replace(/^﻿/, "").split("\n").filter(function (l) { return l.trim(); });
+    if (!lineas.length) return [];
+    var cab = lineas.shift().split(",").map(function (c) { return c.trim(); });
+    var filas = [];
+    lineas.forEach(function (l) {
+      var celdas = l.split(",").map(function (c) { return c.replace(/"/g, "").trim(); });
+      var fecha = parseFecha(celdas[0] || "");
+      if (!fecha) return;
+      var fila = { fecha: fecha }, hayDato = false;
+      cab.forEach(function (col, i) {
+        if (i === 0) return;
+        var v = celdas[i] == null || celdas[i] === "" ? null : parseFloat(celdas[i]);
+        if (v !== null && isNaN(v)) v = null;
+        if (v === 0 && /^Cota/.test(col)) v = null;
+        if (v) hayDato = true;
+        fila[col] = v;
+      });
+      if (hayDato) filas.push(fila);
+    });
+    filas.sort(function (a, b) { return a.fecha - b.fecha; });
+    return filas;
+  }
+
+  function hoyEcuador() {
+    var d = new Date(Date.now() - 5 * 3600e3);
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  }
+  function esHoy(f) { var h = hoyEcuador(); return f.getFullYear() === h.getFullYear() && f.getMonth() === h.getMonth() && f.getDate() === h.getDate(); }
+
+  function etiqueta(f) {
+    if (estado.periodo === "mensual") return f.fecha.getDate() + " " + MESES[f.fecha.getMonth()].slice(0, 3);
+    var h = f.fecha.getHours();
+    return (h === 0 ? "24" : String(h).padStart(2, "0")) + ":00";
+  }
+  function fechaLarga(d) { return DIAS[d.getDay()] + " " + d.getDate() + " de " + MESES[d.getMonth()] + " de " + d.getFullYear(); }
+  function cuando(f) { return estado.periodo === "mensual" ? f.fecha.getDate() + " de " + MESES[f.fecha.getMonth()] : "A las " + etiqueta(f); }
+  function ultimo(filas, col) { for (var i = filas.length - 1; i >= 0; i--) if (filas[i][col] != null) return filas[i]; return null; }
+  function primero(filas, col) { for (var i = 0; i < filas.length; i++) if (filas[i][col] != null) return filas[i]; return null; }
+  function suma(filas, col) { var s = 0, n = 0; filas.forEach(function (f) { if (f[col] != null) { s += f[col]; n++; } }); return n ? s : null; }
+
+  function kpi(lbl, val, unidad, nota, extra) {
+    return '<div class="kpi"><div class="lbl">' + lbl + '</div><div class="val">' + val +
+           (unidad ? '<small>' + unidad + '</small>' : '') + '</div>' + (extra || '') +
+           (nota ? '<div class="note">' + nota + '</div>' : '') + '</div>';
+  }
+
+  function opciones(unidad, dec, horizontal, enteros) {
+    var ejeVal = { grid: { color: "#eef0f5" }, border: { display: false },
+      ticks: { color: "#7b7d95", font: { family: "Inter", size: 11 }, maxTicksLimit: 5, precision: enteros ? 0 : undefined,
+               callback: function (v) { return num(v, enteros ? 0 : dec > 1 ? 1 : 0); } },
+      title: { display: !horizontal, text: unidad, color: "#7b7d95", font: { family: "Inter", size: 11 } } };
+    var ejeCat = { grid: { display: false }, border: { color: "#e3e5ee" },
+      ticks: { color: horizontal ? "#4a4c66" : "#7b7d95", font: { family: "Inter", size: horizontal ? 12 : 11 }, maxRotation: 0, autoSkipPadding: 10 } };
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      indexAxis: horizontal ? "y" : "x",
+      interaction: { mode: "index", intersect: false, axis: horizontal ? "y" : "x" },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          filter: function (it) { return !it.dataset.referencia; },
+          backgroundColor: "#14152b", padding: 10, cornerRadius: 8, displayColors: false,
+          titleFont: { family: "Inter", weight: "600" }, bodyFont: { family: "Inter" },
+          callbacks: {
+            title: function (it) {
+              if (horizontal) return it[0].label;
+              return estado.periodo === "mensual" ? "Día " + it[0].label : "Hora " + it[0].label;
+            },
+            label: function (it) {
+              var v = horizontal ? it.parsed.x : it.parsed.y;
+              return v == null ? "Sin dato" : num(v, enteros ? 0 : dec) + " " + unidad;
+            }
+          }
+        }
+      },
+      scales: horizontal ? { x: ejeVal, y: ejeCat } : { x: ejeCat, y: ejeVal }
+    };
+  }
+
+  var etiquetasBarras = {
+    id: "etiquetasBarras",
+    afterDatasetsDraw: function (chart) {
+      if (chart.options.indexAxis !== "y") return;
+      var ctx = chart.ctx, meta = chart.getDatasetMeta(0);
+      ctx.save();
+      ctx.font = "500 12px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#4a4c66";
+      ctx.textBaseline = "middle";
+      meta.data.forEach(function (bar, i) {
+        var v = chart.data.datasets[0].data[i];
+        ctx.fillText(v == null ? "s/d" : mwh(v) + " MWh", bar.x + 6, bar.y);
+      });
+      ctx.restore();
+    }
+  };
+
+  function dibujar(id, cfg) {
+    if (charts[id]) charts[id].destroy();
+    var ds;
+    if (cfg.tipo === "bar") {
+      ds = { data: cfg.valores, backgroundColor: cfg.colores || cfg.color, borderRadius: 4, borderSkipped: "start",
+             maxBarThickness: cfg.horizontal ? 22 : 18 };
+    } else {
+      ds = { data: cfg.valores, borderColor: cfg.color, backgroundColor: cfg.color, borderWidth: 2,
+             tension: cfg.escalon ? 0 : 0.25, stepped: cfg.escalon ? "middle" : false,
+             pointRadius: cfg.valores.length > 20 ? 0 : 3, pointHoverRadius: 5, pointHitRadius: 12, spanGaps: false };
+    }
+    var opts = opciones(cfg.unidad, cfg.dec, cfg.horizontal, cfg.enteros);
+    if (cfg.extra && cfg.extra.length) opts.scales.y.suggestedMin = cfg.extra[0].data[0] - 2;
+    if (cfg.enteros) opts.scales.y.suggestedMax = Math.max.apply(null, cfg.valores.filter(function (v) { return v != null; }).concat([1])) + 1;
+    if (cfg.cero) opts.scales[cfg.horizontal ? "x" : "y"].beginAtZero = true;
+    var maxVal = Math.max.apply(null, cfg.valores.filter(function (v) { return v != null; }).concat([0]));
+    if (maxVal === 0 && !cfg.enteros) opts.scales[cfg.horizontal ? "x" : "y"].suggestedMax = 10;
+    if (cfg.horizontal) {
+      opts.scales.x.suggestedMax = maxVal * 1.15;
+      opts.scales.x.ticks.display = false;
+      opts.scales.x.grid.display = false;
+      opts.layout = { padding: { right: 92 } };
+    }
+    charts[id] = new Chart(document.getElementById(id), {
+      type: cfg.tipo, data: { labels: cfg.labels, datasets: [ds].concat(cfg.extra || []) }, options: opts,
+      plugins: [etiquetasBarras]
+    });
+  }
+
+  function tabla(cols, filas, labels) {
+    var th = "<thead><tr><th>" + (estado.periodo === "mensual" ? "Día" : "Hora") + "</th>" +
+             cols.map(function (c) { return "<th>" + c.titulo + "</th>"; }).join("") + "</tr></thead>";
+    var tb = filas.map(function (f, i) {
+      return "<tr><td>" + labels[i] + "</td>" + cols.map(function (c) {
+        var v = c.valor(f); return "<td>" + (v == null ? "s/d" : num(v, c.dec)) + "</td>";
+      }).join("") + "</tr>";
+    }).join("");
+    document.getElementById("tabla").innerHTML = th + "<tbody>" + tb + "</tbody>";
+  }
+
+  function subtitulo(ref) {
+    var mensual = estado.periodo === "mensual";
+    if (mensual) {
+      var d = ref.fecha;
+      return (estado.vista === "hidrologia" ? "Promedio diario" : "Energía generada por día") + " en " + MESES[d.getMonth()] + " de " +
+             d.getFullYear() + ". Datos hasta el " + d.getDate() + " de " + MESES[d.getMonth()] + ".";
+    }
+    var dia = new Date(ref.fecha); if (dia.getHours() === 0) dia.setDate(dia.getDate() - 1);
+    return "Registro por hora del " + fechaLarga(dia) + ". Último dato: " + etiqueta(ref) + ".";
+  }
+
+  // ---------- Hidrología ----------
+  function renderHidro(filas, c) {
+    var h = c.hidro, mensual = estado.periodo === "mensual";
+    var labels = filas.map(etiqueta);
+    var uCaudal = ultimo(filas, h.caudal), uCota = h.cota ? ultimo(filas, h.cota) : null;
+    var ref = uCaudal || uCota;
+    if (!ref) return false;
+    document.getElementById("sub").textContent = subtitulo(ref);
+
+    var k = [];
+    k.push(kpi(mensual ? "Caudal promedio, último día" : "Caudal, último registro",
+               uCaudal ? num(uCaudal[h.caudal], 1) : "s/d", "m³/s", uCaudal ? cuando(uCaudal) : ""));
+    if (h.cota) {
+      var cv = uCota ? uCota[h.cota] : null;
+      k.push(kpi("Cota, último registro", cv == null ? "s/d" : num(cv, 2), "m s. n. m.", uCota ? cuando(uCota) : ""));
+      if (h.critica) {
+        var dif = cv == null ? null : cv - h.critica;
+        k.push(kpi(dif != null && dif < 0 ? "Metros bajo la cota crítica" : "Metros sobre la cota crítica",
+                   dif == null ? "s/d" : num(Math.abs(dif), 1), "m",
+                   "Cota crítica: " + num(h.critica, 0) + " m s. n. m., nivel en el que la central deja de generar"));
+      } else if (h.min != null) {
+        var pct = cv == null ? null : Math.max(0, Math.min(100, (cv - h.min) / (h.max - h.min) * 100));
+        k.push(kpi("Posición en el rango de operación", pct == null ? "s/d" : num(pct, 0) + "%", "",
+                   "Mín. " + num(h.min, h.min % 1 ? 2 : 0) + " · Máx. " + num(h.max, h.max % 1 ? 2 : 0) + " m s. n. m.",
+                   '<div class="meter" aria-hidden="true"><i style="width:' + (pct || 0) + '%"></i></div>'));
+      } else {
+        var p0 = primero(filas, h.cota);
+        var cambio = p0 && uCota ? uCota[h.cota] - p0[h.cota] : null;
+        k.push(kpi(mensual ? "Cambio de cota en el mes" : "Cambio de cota en el día",
+                   cambio == null ? "s/d" : (cambio > 0 ? "+" : "") + num(cambio, 2), "m",
+                   p0 ? "Desde " + (mensual ? "el " + cuando(p0) : "las " + etiqueta(p0)) : ""));
+      }
+    } else {
+      var vals = filas.map(function (f) { return f[h.caudal]; }).filter(function (v) { return v != null; });
+      k.push(kpi("Máximo del periodo", num(Math.max.apply(null, vals), 1), "m³/s"));
+      k.push(kpi("Mínimo del periodo", num(Math.min.apply(null, vals), 1), "m³/s"));
+    }
+    document.getElementById("kpis").innerHTML = k.join("");
+
+    document.getElementById("t-1").textContent = (mensual ? "Caudal promedio diario, " : "Caudal por hora, ") + nombre(c);
+    document.getElementById("h-1").textContent = h.desc + ", en metros cúbicos por segundo.";
+    dibujar("c-1", { tipo: mensual ? "bar" : "line", labels: labels, valores: filas.map(function (f) { return f[h.caudal]; }),
+                     color: COLOR.caudal, unidad: "m³/s", dec: 2, cero: mensual });
+
+    var card2 = document.getElementById("card-2"), btn = document.getElementById("btn-critica");
+    if (h.cota) {
+      card2.hidden = false;
+      var ver = !!h.critica && estado.verCritica[estado.periodo];
+      btn.hidden = !h.critica;
+      btn.setAttribute("aria-pressed", String(ver));
+      document.getElementById("t-2").textContent = (mensual ? "Cota al cierre de cada día, " : "Cota por hora, ") + nombre(c);
+      document.getElementById("h-2").textContent = "Nivel del agua, en metros sobre el nivel del mar." +
+        (ver ? " La línea roja marca la cota crítica (" + num(h.critica, 0) + " m s. n. m.)." : "");
+      var extra = ver ? [{ referencia: true, data: labels.map(function () { return h.critica; }), borderColor: COLOR.critica,
+                           borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, pointHoverRadius: 0, pointHitRadius: 0, fill: false }] : [];
+      dibujar("c-2", { tipo: "line", labels: labels, valores: filas.map(function (f) { return f[h.cota]; }),
+                       color: COLOR.cota, unidad: "m s. n. m.", dec: 2, extra: extra });
+    } else {
+      card2.hidden = true;
+    }
+
+    var cols = [{ titulo: "Caudal (m³/s)", dec: 2, valor: function (f) { return f[h.caudal]; } }];
+    if (h.cota) cols.push({ titulo: "Cota (m s. n. m.)", dec: 2, valor: function (f) { return f[h.cota]; } });
+    tabla(cols, filas, labels);
+    return true;
+  }
+
+  // ---------- Producción ----------
+  function totalFila(f) {
+    var s = 0, n = 0;
+    PLANTAS.forEach(function (p) { var v = f[p.prod.energia]; if (v != null) { s += v; n++; } });
+    return n ? s : null;
+  }
+
+  function renderProd(filas, c) {
+    var mensual = estado.periodo === "mensual";
+    var serie = c.total ? totalFila : function (f) { return f[c.prod.energia]; };
+    var util = filas.filter(function (f) { return serie(f) != null; });
+    var recortado = false;
+    if (c.total && mensual) {
+      var completas = util.filter(function (f) { return PLANTAS.every(function (p) { return f[p.prod.energia] != null; }); });
+      if (completas.length && completas.length < util.length) { recortado = completas[0].fecha; util = completas; }
+    }
+    if (!util.length) return false;
+    var labels = util.map(etiqueta);
+    var valores = util.map(serie);
+    var ref = util[util.length - 1];
+    document.getElementById("sub").textContent = subtitulo(ref);
+
+    var parcial = mensual && esHoy(ref.fecha);
+    var completos = mensual ? util.filter(function (f) { return !esHoy(f.fecha); }) : util;
+    var acumulado = valores.reduce(function (a, b) { return a + b; }, 0);
+    var k = [];
+    if (mensual) {
+      var uc = completos[completos.length - 1];
+      k.push(kpi("Energía del último día completo", uc ? mwh(serie(uc)) : "s/d", "MWh", uc ? cuando(uc) : ""));
+      k.push(kpi("Energía acumulada del mes", mwh(acumulado), "MWh",
+                 (recortado ? "Desde el " + recortado.getDate() + " de " + MESES[recortado.getMonth()] + ". " : "") +
+                 (parcial ? "Incluye el día en curso" : "")));
+      var prom = completos.length ? completos.reduce(function (a, f) { return a + serie(f); }, 0) / completos.length : null;
+      k.push(kpi("Promedio por día", prom == null ? "s/d" : mwh(prom), "MWh", completos.length + " días completos"));
+    } else {
+      k.push(kpi("Energía en la última hora", mwh(serie(ref)), "MWh", cuando(ref)));
+      k.push(kpi("Energía acumulada del día", mwh(acumulado), "MWh", "Hasta las " + etiqueta(ref)));
+      if (c.total) {
+        var apagadas = PLANTAS.filter(function (p) { var s = suma(filas, p.prod.energia); return s === 0; });
+        k.push(kpi("Centrales sin generar hoy", String(apagadas.length), "",
+                   apagadas.length ? apagadas.map(function (p) { return p.nombre; }).join(", ") : "Todas generaron energía"));
+      } else {
+        var uu = ultimo(filas, c.prod.unidades);
+        k.push(kpi("Unidades en línea", uu ? num(uu[c.prod.unidades], 0) : "s/d", "", uu ? cuando(uu) : ""));
+      }
+    }
+    document.getElementById("kpis").innerHTML = k.join("");
+
+    var sinGenerar = !c.total && acumulado === 0;
+    var faltan = c.total ? PLANTAS.filter(function (p) {
+      return util.some(function (f) { return f[p.prod.energia] == null; });
+    }) : [];
+    document.getElementById("t-1").textContent = c.total
+      ? (mensual ? "Energía total generada por día" : "Energía total generada por hora")
+      : (mensual ? "Energía generada por día, " : "Energía generada por hora, ") + nombre(c);
+    document.getElementById("h-1").textContent = "En megavatios hora (MWh)." +
+      (c.total ? " Suma de las siete centrales." : "") +
+      (sinGenerar ? " " + nombre(c) + " no generó energía en este periodo." : "") +
+      (recortado ? " Se muestra desde el " + recortado.getDate() + " de " + MESES[recortado.getMonth()] +
+                   ", primer día con datos de todas las centrales." : "") +
+      (faltan.length ? " " + faltan.map(function (p) { return p.nombre; }).join(", ") + (faltan.length > 1 ? " no tienen" : " no tiene") +
+                       " datos para todo el periodo." : "") +
+      (parcial ? " El último día está incompleto." : "");
+    var colores = valores.map(function (v, i) { return parcial && i === valores.length - 1 ? "rgba(180,83,9,.4)" : COLOR.energia; });
+    dibujar("c-1", { tipo: "bar", labels: labels, valores: valores, colores: colores, color: COLOR.energia, unidad: "MWh", dec: 1, cero: true });
+
+    var card2 = document.getElementById("card-2");
+    document.getElementById("btn-critica").hidden = true;
+    if (c.total) {
+      card2.hidden = false;
+      var angosto = window.innerWidth < 560;
+      var porPlanta = PLANTAS.map(function (p) { return { n: angosto && p.corto ? p.corto : p.nombre, v: suma(util, p.prod.energia) }; })
+                             .sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
+      document.getElementById("t-2").textContent = mensual ? "Energía acumulada del mes por central" : "Energía acumulada del día por central";
+      document.getElementById("h-2").textContent = "En megavatios hora (MWh).";
+      dibujar("c-2", { tipo: "bar", horizontal: true, labels: porPlanta.map(function (x) { return x.n; }),
+                       valores: porPlanta.map(function (x) { return x.v; }), color: COLOR.energia, unidad: "MWh", dec: 0, cero: true });
+    } else if (!mensual) {
+      card2.hidden = false;
+      document.getElementById("t-2").textContent = "Unidades en línea por hora, " + nombre(c);
+      document.getElementById("h-2").textContent = "Número de turbinas generando en cada hora.";
+      dibujar("c-2", { tipo: "line", escalon: true, labels: labels, valores: util.map(function (f) { return f[c.prod.unidades]; }),
+                       color: COLOR.unidades, unidad: "unidades", dec: 0, enteros: true, cero: true });
+    } else {
+      card2.hidden = true;
+    }
+
+    var cols;
+    if (c.total) {
+      cols = PLANTAS.map(function (p) { return { titulo: p.nombre + " (MWh)", dec: 1, valor: function (f) { return f[p.prod.energia]; } }; });
+      cols.push({ titulo: "Total (MWh)", dec: 1, valor: totalFila });
+    } else {
+      cols = [{ titulo: "Energía (MWh)", dec: 1, valor: function (f) { return f[c.prod.energia]; } }];
+      if (!mensual) cols.push({ titulo: "Unidades", dec: 0, valor: function (f) { return f[c.prod.unidades]; } });
+    }
+    tabla(cols, util, labels);
+    return true;
+  }
+
+  function render() {
+    var c = central();
+    document.querySelectorAll("[data-periodo]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.periodo === estado.periodo)); });
+    document.querySelectorAll("[data-vista]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.vista === estado.vista)); });
+    document.getElementById("chips").innerHTML = disponibles().map(function (x) {
+      return '<button type="button" data-id="' + x.id + '" aria-pressed="' + (x.id === c.id) + '">' + nombre(x) + "</button>";
+    }).join("");
+    document.getElementById("titulo").textContent = estado.vista === "hidrologia"
+      ? "Caudales y niveles de las hidroeléctricas de CELEC" : "Producción de las hidroeléctricas de CELEC";
+    var archivo = estado.vista + "-" + estado.periodo;
+    document.getElementById("descarga").href = "data/" + archivo + ".csv";
+
+    var filas = datos[archivo] || [];
+    var ok = filas.length && (estado.vista === "hidrologia" ? renderHidro(filas, c) : renderProd(filas, c));
+    document.getElementById("app").hidden = !ok;
+    document.getElementById("vacio").hidden = !!ok;
+    if (!ok) document.getElementById("sub").textContent = "";
+  }
+
+  document.getElementById("chips").addEventListener("click", function (ev) {
+    var b = ev.target.closest("button"); if (!b) return;
+    estado.central = b.dataset.id; render();
+  });
+  document.querySelectorAll("[data-periodo]").forEach(function (b) {
+    b.addEventListener("click", function () { estado.periodo = b.dataset.periodo; render(); });
+  });
+  document.querySelectorAll("[data-vista]").forEach(function (b) {
+    b.addEventListener("click", function () { estado.vista = b.dataset.vista; render(); });
+  });
+  document.getElementById("btn-critica").addEventListener("click", function () {
+    estado.verCritica[estado.periodo] = !estado.verCritica[estado.periodo]; render();
+  });
+
+  // El parámetro v evita que el navegador muestre una versión vieja de los CSV.
+  var v = "?v=" + Math.floor(Date.now() / 600000);
+  var archivos = ["hidrologia-diario", "hidrologia-mensual", "produccion-diario", "produccion-mensual"];
+  Promise.all(archivos.map(function (a) {
+    return fetch("data/" + a + ".csv" + v).then(function (r) { return r.ok ? r.text() : ""; }).catch(function () { return ""; });
+  })).then(function (res) {
+    archivos.forEach(function (a, i) { datos[a] = res[i] ? parseCSV(res[i]) : []; });
+    render();
+  });
+})();
+</script>
+</body>
+</html>
